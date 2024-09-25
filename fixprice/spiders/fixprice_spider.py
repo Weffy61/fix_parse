@@ -120,9 +120,9 @@ class FixPriceSpider(scrapy.Spider):
         product = response.meta['product']
         item = response.json()
         product['assets'] = {
-            'main_image': item['images'][0].get('src') if item['images'] else None,  # заменить на получение по ключу
+            'main_image': next((img['src'] for img in item['images'] if img['id'] == item.get('image')), None),
             'set_images': [image.get('src') for image in item['images']],
-            'view360': ['Найти изображение 360'],  # найти изображение 360
+            'view360': ['Нет изображения 360"'],
             'video': [urljoin('https://youtu.be/', item['video'])] if item['video'] else []
         }
         product['metadata'] = {
