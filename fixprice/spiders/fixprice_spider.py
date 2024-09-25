@@ -3,6 +3,8 @@ import datetime
 from urllib.parse import urlencode, urljoin
 
 import scrapy
+from fake_useragent import UserAgent
+from scrapy.exceptions import CloseSpider
 
 from fixprice.items import FixpriceItem
 from utils import calculate_discount
@@ -12,28 +14,30 @@ class FixPriceSpider(scrapy.Spider):
     name = 'fixprice'
     allowed_domains = ['fix-price.com']
     start_urls = ['https://fix-price.com']
+    ua = UserAgent()
 
     custom_settings = {
         'DEFAULT_REQUEST_HEADERS': {
             'x-city': '55',
             'x-language': 'ru',
             'referer': 'https://fix-price.com/',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
-                          '(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
+            'User-Agent': ua.safari
         },
     }
 
     def __init__(self, categories=None, *args, **kwargs):
         super(FixPriceSpider, self).__init__(*args, **kwargs)
         if categories:
-            self.categories = categories
+            self.categories = [category.strip() for category in categories.split(',')]
         else:
             self.categories = [
-                'odezhda/detskaya-odezhda',
                 'kosmetika-i-gigiena/ukhod-za-polostyu-rta',
                 'kosmetika-i-gigiena/gigienicheskie-sredstva',
                 'kosmetika-i-gigiena/ukhod-za-telom'
             ]
+        if len(self.categories) < 3:
+            raise scrapy.exceptions.CloseSpider('Недостаточно категорий для работы паука. Требуется минимум 3.')
+
         self.page_limit = 24
 
     def start_requests(self):

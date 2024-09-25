@@ -1,1 +1,2 @@
 Scrapy==2.11.2
+fake-useragent==1.5.1
