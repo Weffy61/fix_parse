@@ -1,5 +1,6 @@
 import json
 import datetime
+import random
 from urllib.parse import urlencode, urljoin
 
 import scrapy
@@ -25,8 +26,9 @@ class FixPriceSpider(scrapy.Spider):
         },
     }
 
-    def __init__(self, categories=None, *args, **kwargs):
+    def __init__(self, categories=None, use_proxy=True, *args, **kwargs):
         super(FixPriceSpider, self).__init__(*args, **kwargs)
+        self.use_proxy = use_proxy
         if categories:
             self.categories = [category.strip() for category in categories.split(',')]
         else:
@@ -39,6 +41,13 @@ class FixPriceSpider(scrapy.Spider):
             raise scrapy.exceptions.CloseSpider('Недостаточно категорий для работы паука. Требуется минимум 3.')
 
         self.page_limit = 24
+
+        self.proxy_list = [
+            'http://<HTTP_PROXY_IP_ADDRESS>:<HTTP_PROXY_PORT>',
+            'https://<HTTPS_PROXY_IP_ADDRESS>:<HTTPS_PROXY_PORT>',
+            'socks4://<SOCKS4_PROXY_IP_ADDRESS>:<SOCKS4_PROXY_PORT>',
+            'socks5://<SOCKS5_PROXY_IP_ADDRESS>:<SOCKS5_PROXY_PORT>',
+        ]
 
     def start_requests(self):
         params = {'page': '1', 'limit': str(self.page_limit), 'sort': 'sold'}
@@ -54,13 +63,16 @@ class FixPriceSpider(scrapy.Spider):
                 'isSpecialPrice': False,
             }
 
+            proxy = random.choice(self.proxy_list) if self.use_proxy is True else None
+
             yield scrapy.http.JsonRequest(
                 url=url,
                 method='POST',
                 body=json.dumps(json_data),
                 headers={'Content-Type': 'application/json'},
-                meta={'category': category, 'page': 1},
+                meta={'proxy': proxy, 'category': category, 'page': 1},
                 callback=self.parse_category,
+                errback=self.handle_error,
             )
 
     def parse_category(self, response):
@@ -77,16 +89,33 @@ class FixPriceSpider(scrapy.Spider):
             next_page = page + 1
             params = {'page': str(next_page), 'limit': str(self.page_limit), 'sort': 'sold'}
             url = f'https://api.fix-price.com/buyer/v1/product/in/{category}?{urlencode(params)}'
-
+            proxy = random.choice(self.proxy_list) if self.use_proxy is True else None
             json_data = {'category': category, 'brand': [], 'price': []}
+
             yield scrapy.http.JsonRequest(
                 url=url,
                 method='POST',
                 body=json.dumps(json_data),
                 headers={'Content-Type': 'application/json'},
-                meta={'category': category, 'page': next_page},
-                callback=self.parse_category
+                meta={'proxy': proxy, 'category': category, 'page': next_page},
+                callback=self.parse_category,
+                errback=self.handle_error,
             )
+
+    def handle_error(self, failure):
+        self.logger.error(f"Ошибка: {failure.value}")
+        if isinstance(failure.value, scrapy.exceptions.IgnoreRequest):
+            return
+
+        request = failure.request
+        category = request.meta['category']
+        page = request.meta['page']
+
+        if self.use_proxy:
+            new_proxy = random.choice(self.proxy_list)
+            request.meta['proxy'] = new_proxy
+            self.logger.info(f"Повторный запрос для {category} на странице {page} с прокси {new_proxy}")
+            yield request
 
     def parse_item(self, item):
         item_url = urljoin('https://api.fix-price.com/buyer/v1/product/', item['url'])
@@ -117,7 +146,11 @@ class FixPriceSpider(scrapy.Spider):
             url=item_url,
             method='GET',
             callback=self.parse_product_details,
-            meta={'product': product}
+            meta={
+                'product': product,
+                'proxy': random.choice(self.proxy_list) if self.use_proxy is True else None
+            },
+            errback=self.handle_error,
         )
 
     def parse_product_details(self, response):

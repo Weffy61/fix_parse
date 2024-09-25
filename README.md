@@ -24,12 +24,14 @@ pip install -r requirements.txt
 Для запуска паука используйте следующую команду:
 
 ```commandline
-scrapy crawl fixprice -o output.json -a categories='категория1,категория2,категория3'
+scrapy crawl fixprice -o output.json -a categories='категория1,категория2,категория3' -a use_proxy=True
 ```
 Где:
 - `output.json` - файл, в который будут сохранены собранные данные в формате JSON.  
 - `категория1,категория2,категория3` - список категорий товаров, которые вы хотите парсить. 
-Минимальное количество категорий для запуска паука — 3.  
+Минимальное количество категорий для запуска паука — 3.
+- use_proxy (по умолчанию `True`) - если указать `False`, парсер будет работать без использования прокси.
+  
 
 #### Пример:
 Если вы хотите собрать данные для следующих категорий:
@@ -37,6 +39,13 @@ scrapy crawl fixprice -o output.json -a categories='категория1,кате
 - бытовая химия/средства для кухни
 - продукты и напитки/овощная консервация
 
+С прокси:
+
 ```commandline
-scrapy crawl fixprice -o 'products.json' -a categories='dlya-doma/tovary-dlya-uborki,bytovaya-khimiya/sredstva-dlya-kukhni,produkty-i-napitki/konservatsiya-ovoshchnaya'
+scrapy crawl fixprice -o 'products.json' -a categories='dlya-doma/tovary-dlya-uborki,bytovaya-khimiya/sredstva-dlya-kukhni,produkty-i-napitki/konservatsiya-ovoshchnaya' -a use_proxy=True
+```
+
+Без прокси:
+```commandline
+scrapy crawl fixprice -o 'products.json' -a categories='dlya-doma/tovary-dlya-uborki,bytovaya-khimiya/sredstva-dlya-kukhni,produkty-i-napitki/konservatsiya-ovoshchnaya' -a use_proxy=False
 ```
